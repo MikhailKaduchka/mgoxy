@@ -5,8 +5,9 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"io/ioutil"
 	"os"
+	"bufio"
+	"log"
 )
 
 func main() {
@@ -18,6 +19,8 @@ func main() {
 	port := os.Getenv("PORT")
 
 	http.ListenAndServe(":" + port, nil)
+
+	fmt.Println("Proxy started on port: ", port)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
@@ -30,14 +33,34 @@ func urlHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := http.Get("http://" + url)
 	if err != nil {
-		// handle error
+		log.Println("Couldn't reach url. Error: ", err)
 	}
 	defer resp.Body.Close()
 
-	//TODO: Streaming mp3 support
-	body, err := ioutil.ReadAll(resp.Body)
+	reader := bufio.NewReader(resp.Body)
+	for {
+		var bytes []byte
 
-	w.Write(body)
+		for i := 0; i < 512; i++ {
+			line, err := reader.ReadByte()
+			if err == nil {
+				bytes[i] = line
+			} else {
+				log.Println("Reading error: ", err)
+				break
+			}
+		}
+
+		w.Write(bytes)
+
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		} else {
+			log.Println("Damn, no flush");
+		}
+		//Clear bytes
+		bytes = nil
+	}
 }
 
 const templateStr = `
