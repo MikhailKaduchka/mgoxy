@@ -6,14 +6,18 @@ import (
 	"fmt"
 	"net/http"
 	"io/ioutil"
+	"os"
 )
 
 func main() {
 
+	http.HandleFunc("/", indexHandler)
 	http.HandleFunc("/index.html", indexHandler)
 	http.HandleFunc("/go/", urlHandler)
 
-	http.ListenAndServe(":8080", nil)
+	port := os.Getenv("PORT")
+
+	http.ListenAndServe(":" + port, nil)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
