@@ -3,65 +3,71 @@ package main
 //Simple proxy application
 
 import (
-	"fmt"
-	"net/http"
-	"os"
-	"bufio"
-	"log"
+  "fmt"
+  "net/http"
+  "os"
+  "bufio"
+  "log"
 )
 
 func main() {
 
-	http.HandleFunc("/", indexHandler)
-	http.HandleFunc("/index.html", indexHandler)
-	http.HandleFunc("/go/", urlHandler)
+  http.HandleFunc("/", indexHandler)
+  http.HandleFunc("/index.html", indexHandler)
+  http.HandleFunc("/go/", urlHandler)
 
-	port := os.Getenv("PORT")
+  port := os.Getenv("PORT")
 
-	http.ListenAndServe(":" + port, nil)
+  http.ListenAndServe(":" + port, nil)
 
-	fmt.Println("Proxy started on port: ", port)
+  fmt.Println("Proxy started on port: ", port)
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, templateStr)
+  fmt.Fprintf(w, templateStr)
 }
 
 func urlHandler(w http.ResponseWriter, r *http.Request) {
 
-	url := r.URL.Path[len("/go/"):]
+  url := r.URL.Path[len("/go/"):]
 
-	resp, err := http.Get("http://" + url)
-	if err != nil {
-		log.Println("Couldn't reach url. Error: ", err)
-	}
-	defer resp.Body.Close()
+  resp, err := http.Get("http://" + url)
+  if err != nil {
+    log.Println("Couldn't reach url. Error: ", err)
+  }
+  defer resp.Body.Close()
 
-	reader := bufio.NewReader(resp.Body)
-	for {
-		var bytes []byte
+  reader := bufio.NewReader(resp.Body)
 
-		for i := 0; i < 512; i++ {
-			line, err := reader.ReadByte()
-			if err == nil {
-				bytes[i] = line
-			} else {
-				log.Println("Reading error: ", err)
-				break
-			}
-		}
+  readPage := true
 
-		w.Write(bytes)
+  for readPage {
 
-		if f, ok := w.(http.Flusher); ok {
-			f.Flush()
-		} else {
-			log.Println("Damn, no flush");
-		}
-		//Clear bytes
-		bytes = nil
-	}
+    bytes := make([]byte, BUF_SIZE, BUF_SIZE)
+
+    for i := 0; i < BUF_SIZE; i++ {
+      line, err := reader.ReadByte()
+      if err == nil {
+        bytes[i] = line
+      } else {
+        log.Println("Reading error: ", err)
+        //Stop loading data
+        readPage = false
+        break
+      }
+    }
+
+    w.Write(bytes)
+
+    if f, ok := w.(http.Flusher); ok {
+      f.Flush()
+    } else {
+      log.Println("Damn, no flush");
+    }
+  }
 }
+
+const BUF_SIZE = 512
 
 const templateStr = `
 <html>
@@ -76,7 +82,6 @@ const templateStr = `
 <body>
 <input id="url" type="text"/>
 <button id="launch" onclick="redirect();">go</button>
-
 </body>
 </html>
 `
